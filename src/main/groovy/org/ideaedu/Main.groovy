@@ -56,11 +56,19 @@ public class Main {
         582: "Obj12"
     ]
 
+    private static final def TERM_CODE_MAP = [
+        "Fall" : 1,
+        "Winter" : 2,
+        "Spring" : 3,
+        "Sumnmer" : 4,
+        "Other" : 5
+]
+
     /** The maximum number of surveys to get before quitting. */
-    private static final def MAX_SURVEYS = 100
+    private static final def MAX_SURVEYS = 5
 
     /** The number of surveys to get per page */
-    private static final def PAGE_SIZE = 100
+    private static final def PAGE_SIZE = 5
 
     private static def institutionID = DEFAULT_INSTITUTION_ID
     private static def startDate = DEFAULT_START_DATE
@@ -149,7 +157,7 @@ public class Main {
                     print "${survey.id},"
                     print "${institution.fice},"
                     print "${institution.name},"
-                    print "${survey.term} ${survey.year},"
+                    print "${survey.term}," //e.g. Fall 2013
                     print "${surveySubject.first_name} ${surveySubject.last_name},"
                     print "${discipline?.code},"
                     print "${survey.course.number},"
@@ -162,7 +170,11 @@ public class Main {
                     print "${model.aggregate_data.answered},"
                     print "${formName},"
                     print "," // Skip delivery
-                    print ","// TODO print Year_term
+
+                    def term = survey.term.split(" ")[0]
+                    TERM_CODE_MAP.each { t ->
+                        if (t.key == term) print "${survey.year}${t.value}," //Year_Term_Code
+                    }
                     print "," // batch is unused in IDEA-CL
 
                     OBJECTIVE_MAP.each { objective ->
