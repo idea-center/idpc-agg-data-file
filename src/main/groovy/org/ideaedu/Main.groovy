@@ -65,7 +65,7 @@ public class Main {
     ]
     private static final def DIAGNOSTIC_QUESTION_ID_LIST = [490..492,471..482].flatten()
     private static final def DIAGNOSTIC_QUESTION_TEACHING_METHOD_ID_LIST = [451..470].flatten()
-    private static final def DIAGNOSTIC_ONLY_QUESTION_ID_LIST = [483..489,493].flatten()
+    private static final def DIAGNOSTIC_ONLY_QUESTION_ID_LIST = [483..489,493].flatten() //Diagnostic 33-
     private static final def DIAGNOSTIC_ADDITIONAL_QUESTION_ID_LIST = [546..565].flatten()
     private static final def SHORT_QUESTION_ID_LIST = [716..718,701..712].flatten()
     private static final def RESEARCH_QUESTION_ID_LIST = [695,494..497].flatten()
@@ -166,6 +166,7 @@ public class Main {
                 def reportID = reports[0]?.id
                 if(reportID) {
                     def model = getReportModel(reportID)
+                    def frequencies_map = [:] //Frequencies will be stored
 
                     print "${survey.id},"
                     print "${institution.fice},"
@@ -222,7 +223,7 @@ public class Main {
 
 
                     questionList.eachWithIndex{ questionID, index ->
-                        def reportData = getReportDataByQuestion(reportID, questionID)
+                        def reportData = getReportDataByQuestion(reportID, questionID, frequencies_map)
                         print "${reportData.results.result.raw.mean},"          //raw_mean
                         print "${reportData.results.result.adjusted.mean},"     //adj_mean
                         print "${reportData.results.result.raw.tscore},"        //raw t-score
@@ -251,33 +252,47 @@ public class Main {
 
                     //Teaching Method 1-20 (Diagnostic 1-20)
                     DIAGNOSTIC_QUESTION_TEACHING_METHOD_ID_LIST.each { questionID ->
-                        def reportData = getReportDataByQuestion(reportID, questionID)
-                        print (reportData==null? "":"${reportData.results.result.raw.mean},")
+                        def reportData = getReportDataByQuestion(reportID, questionID, frequencies_map)
+                        print "${reportData?.results?.result?.raw?.mean},"
                     }
 
                     //Disgnostic 33-40
                     DIAGNOSTIC_ONLY_QUESTION_ID_LIST.each{ questionID ->
-                        def reportData = getReportDataByQuestion(reportID, questionID)
-                        print (reportData==null? "":"${reportData.results.result.raw.mean},")          //raw_mean
+                        def reportData = getReportDataByQuestion(reportID, questionID, frequencies_map)
+                        print ("${reportData?.results?.result?.raw?.mean},")          //raw_mean
 
                         //Diagnostic 36, 38 (QUESTION_ID = 486, 488) only requires mean
                         if (questionID != 486 || questionID != 488){
-                            print (reportData==null? "":"${reportData.results.result.raw.tscore},")        //raw t-score
-                            print (reportData==null? "":"${reportData.results.discipline_result.raw.tscore}," )        //discipline raw t-score
-                            print (reportData==null? "":"${reportData.results.institution_result.raw.tscore}," )       //institution raw t-score
+                            print "${reportData?.results?.result.raw?.tscore},"                    //raw t-score
+                            print "${reportData?.results?.discipline_result?.raw?.tscore},"        //discipline raw t-score
+                            print "${reportData?.results?.institution_result?.raw?.tscore},"       //institution raw t-score
                         }
                     }
 
                     /* Research Questions */
                     RESEARCH_QUESTION_ID_LIST.each{ questionID ->
-                        def reportData = getReportDataByQuestion(reportID, questionID)
-                        print (reportData==null? "":"${reportData.results.result.raw.mean}," )         //raw_mean
+                        def reportData = getReportDataByQuestion(reportID, questionID, frequencies_map)
+                        print "${reportData?.results?.result?.raw?.mean},"          //raw_mean
                     }
 
                     //Additional Questions
                     additionalQuestionList.each{ questionID ->
-                        def reportData = getReportDataByQuestion(reportID, questionID)
-                        print (reportData==null? "":"${reportData.results.result.raw?.mean},")          //raw_mean
+                        def reportData = getReportDataByQuestion(reportID, questionID, frequencies_map)
+                        print "${reportData?.results?.result?.raw?.mean},"          //raw_mean
+                    }
+
+                    /* Frequencies-Primary Items */
+                    (questionList + DIAGNOSTIC_QUESTION_TEACHING_METHOD_ID_LIST + (DIAGNOSTIC_ONLY_QUESTION_ID_LIST - [486,488])).each{ questionID ->
+                        frequencies_map.get(questionID).each{ count ->
+                            print ("${count},")
+                        }
+                    }
+
+                    /* Frequencies-Research, Add Q's */
+                    ([486,488] + RESEARCH_QUESTION_ID_LIST+ additionalQuestionList).each{ questionID ->
+                        frequencies_map.get(questionID).each{ count ->
+                            print ("${count},")
+                        }
                     }
                     println ""
                 }
@@ -388,7 +403,7 @@ public class Main {
         return reportModel
     }
 
-    static def getReportDataByQuestion(reportID, questionID) {
+    static def getReportDataByQuestion(reportID, questionID, frequencies_map) {
         def reportData
         def client = getRESTClient()
         def response = client.get(
@@ -400,6 +415,15 @@ public class Main {
                 println "Report  data: ${response.data}"
             }
             reportData = response.data
+
+            //Puts frequencies in the map
+            frequencies_map.put(questionID, [reportData.response_option_data_map."0".count, //omit
+                                             reportData.response_option_data_map."1".count,
+                                             reportData.response_option_data_map."2".count,
+                                             reportData.response_option_data_map."3".count,
+                                             reportData.response_option_data_map."4".count,
+                                             reportData.response_option_data_map."5".count,
+                                            ])
         } else {
             //println "An error occured while getting the report data with REPORT_ID = ${reportID}, QUESTION_ID ${questionID}: ${response.status}"
         }
