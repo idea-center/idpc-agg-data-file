@@ -62,13 +62,20 @@ public class Main {
         "Spring" : 3,
         "Sumnmer" : 4,
         "Other" : 5
-]
+    ]
+    private static final def DIAGNOSTIC_QUESTION_ID_LIST = [490..492,471..482].flatten()
+    private static final def DIAGNOSTIC_QUESTION_TEACHING_METHOD_ID_LIST = [451..470].flatten()
+    private static final def DIAGNOSTIC_ONLY_QUESTION_ID_LIST = [483..489,493].flatten()
+    private static final def DIAGNOSTIC_ADDITIONAL_QUESTION_ID_LIST = [546..565].flatten()
+    private static final def SHORT_QUESTION_ID_LIST = [716..718,701..712].flatten()
+    private static final def RESEARCH_QUESTION_ID_LIST = [695,494..497].flatten()
+    private static final def SHORT_ADDITIONAL_QUESTION_ID_LIST = [546..565].flatten()
 
     /** The maximum number of surveys to get before quitting. */
-    private static final def MAX_SURVEYS = 5
+    private static final def MAX_SURVEYS = 1
 
     /** The number of surveys to get per page */
-    private static final def PAGE_SIZE = 5
+    private static final def PAGE_SIZE = 1
 
     private static def institutionID = DEFAULT_INSTITUTION_ID
     private static def startDate = DEFAULT_START_DATE
@@ -149,8 +156,12 @@ public class Main {
                 def formName = getFormName(survey.rater_form.id)
                 def discipline = [ code:"", name: "", abbrev: "" ] // TODO getDiscipline(survey.info_form.discipline_code)
                 def reports = getReports(survey.id, "Short")
+                def questionList = SHORT_QUESTION_ID_LIST
+                def additionalQuestionList = SHORT_ADDITIONAL_QUESTION_ID_LIST
                 if(!reports) {
                     reports = getReports(survey.id, "Diagnostic")
+                    questionList = DIAGNOSTIC_QUESTION_ID_LIST
+                    additionalQuestionList = DIAGNOSTIC_ADDITIONAL_QUESTION_ID_LIST
                 }
                 def reportID = reports[0]?.id
                 if(reportID) {
@@ -206,10 +217,68 @@ public class Main {
                     print "${model.aggregate_data.relevant_results.institution_result.adjusted.tscore},"    //PRO_CAdj_Inst
 
                     /* As a result of taking this course, I have more positive feelings toward this field of study --- Diagnostic - 40 and Short - 16 */
-                    //Means
+                    /* Excellent teacher: Overall, I rate this instructor an excellent teacher --- Diagnostic - 41 and Short - 17 */
+                    /* Excellent course: Overall, I rate this course as excellent --- Diagnostic - 42 and Short - 18 */
 
-                    //Compared to IDEA
 
+                    questionList.eachWithIndex{ questionID, index ->
+                        def reportData = getReportDataByQuestion(reportID, questionID)
+                        print "${reportData.results.result.raw.mean},"          //raw_mean
+                        print "${reportData.results.result.adjusted.mean},"     //adj_mean
+                        print "${reportData.results.result.raw.tscore},"        //raw t-score
+                        print "${reportData.results.result.adjusted.tscore},"   //raw adjusted t-score
+
+                        //Except Diagnostic 40 / Short 16 (index = 0), we need compared to discipline / institution
+                        if (index != 0){
+                            print "${reportData.results.discipline_result.raw.tscore},"         //discipline raw t-score
+                            print "${reportData.results.discipline_result.adjusted.tscore},"    //discipline adjusted t-score
+                            print "${reportData.results.institution_result.raw.tscore},"        //institution raw t-score
+                            print "${reportData.results.institution_result.adjusted.tscore},"   //institution adjusted t-score
+                        }
+
+                        //Add Summary before Objective 1 (Diagnostic 21 / Short 1)
+                        if (index == 3){
+                            print "${model.aggregate_data.summary_evaluation.result.raw.mean},"                     //SumEval_Raw_Mean
+                            print "${model.aggregate_data.summary_evaluation.result.adjusted.mean},"                //SumEval_Adj_Mean
+                            print "${model.aggregate_data.summary_evaluation.result.raw.tscore},"                   //SumEval_CRaw_IDEA
+                            print "${model.aggregate_data.summary_evaluation.result.adjusted.tscore},"              //SumEval_CAdj_IDEA
+                            print "${model.aggregate_data.summary_evaluation.discipline_result.raw.tscore},"        //SumEval_CRaw_Disc
+                            print "${model.aggregate_data.summary_evaluation.discipline_result.adjusted.tscore},"   //SumEval_CAdj_Disc
+                            print "${model.aggregate_data.summary_evaluation.institution_result.raw.tscore},"       //SumEval_CRaw_Inst
+                            print "${model.aggregate_data.summary_evaluation.institution_result.adjusted.tscore},"  //SumEval_CAdj_Inst
+                        }
+                    }
+
+                    //Teaching Method 1-20 (Diagnostic 1-20)
+                    DIAGNOSTIC_QUESTION_TEACHING_METHOD_ID_LIST.each { questionID ->
+                        def reportData = getReportDataByQuestion(reportID, questionID)
+                        print (reportData==null? "":"${reportData.results.result.raw.mean},")
+                    }
+
+                    //Disgnostic 33-40
+                    DIAGNOSTIC_ONLY_QUESTION_ID_LIST.each{ questionID ->
+                        def reportData = getReportDataByQuestion(reportID, questionID)
+                        print (reportData==null? "":"${reportData.results.result.raw.mean},")          //raw_mean
+
+                        //Diagnostic 36, 38 (QUESTION_ID = 486, 488) only requires mean
+                        if (questionID != 486 || questionID != 488){
+                            print (reportData==null? "":"${reportData.results.result.raw.tscore},")        //raw t-score
+                            print (reportData==null? "":"${reportData.results.discipline_result.raw.tscore}," )        //discipline raw t-score
+                            print (reportData==null? "":"${reportData.results.institution_result.raw.tscore}," )       //institution raw t-score
+                        }
+                    }
+
+                    /* Research Questions */
+                    RESEARCH_QUESTION_ID_LIST.each{ questionID ->
+                        def reportData = getReportDataByQuestion(reportID, questionID)
+                        print (reportData==null? "":"${reportData.results.result.raw.mean}," )         //raw_mean
+                    }
+
+                    //Additional Questions
+                    additionalQuestionList.each{ questionID ->
+                        def reportData = getReportDataByQuestion(reportID, questionID)
+                        print (reportData==null? "":"${reportData.results.result.raw?.mean},")          //raw_mean
+                    }
                     println ""
                 }
             }
@@ -317,6 +386,25 @@ public class Main {
         }
 
         return reportModel
+    }
+
+    static def getReportDataByQuestion(reportID, questionID) {
+        def reportData
+        def client = getRESTClient()
+        def response = client.get(
+                path: "${basePath}/report/${reportID}/model/${questionID}",
+                requestContentType: ContentType.JSON,
+                headers: authHeaders)
+        if(response.status == 200) {
+            if(verboseOutput) {
+                println "Report  data: ${response.data}"
+            }
+            reportData = response.data
+        } else {
+            //println "An error occured while getting the report data with REPORT_ID = ${reportID}, QUESTION_ID ${questionID}: ${response.status}"
+        }
+
+        return reportData
     }
 
     /**
