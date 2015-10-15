@@ -167,6 +167,7 @@ public class Main {
                 if(reportID) {
                     def model = getReportModel(reportID)
                     def frequencies_map = [:] //Frequencies will be stored
+                    def objectives = [] //objectives will be stored
 
                     print "${survey.id},"
                     print "${institution.fice},"
@@ -192,14 +193,16 @@ public class Main {
                     print "," // batch is unused in IDEA-CL
 
                     //Objectives
-                    OBJECTIVE_MAP.each { objective ->
+                    OBJECTIVE_MAP.eachWithIndex { objective, index ->
                         def response = "Default-Imp"
 
                         model.aggregate_data.relevant_results.questions.each { question ->
                             if(question.question_id == objective.key) {
                                 response = question.response
+
                             }
                         }
+                        objectives[index] = response //This is ok as we always have 12 objectives
                         print "${response},"
                     }
                     //TODO Number formatting (null, 1/10 for means and 1/1000 for t-scores)?
@@ -222,20 +225,17 @@ public class Main {
                     /* Excellent course: Overall, I rate this course as excellent --- Diagnostic - 42 and Short - 18 */
 
 
+                    /* Each index represents a section in Means
+                       index = 0 : As a result of taking this course, I have more positive feelings toward this field of study --- Diagnostic - 40 and Short - 16
+                       index = 1 : Overall, I rate this instructor an excellent teacher --- Diagnostic - 41 and Short - 17
+                       index = 2 : Overall, I rate this course as excellent --- Diagnostic - 42 and Short - 18
+                       index = 3 : Summary Evaluation
+                       index = 4 : Objective 1 - Gaining factual knowledge (terminology, classifications, methods, trends) --- Diagnostic - 21 and Short - 1
+                       ....
+                       index = 15 : Objective 12 - Acquiring an interest in learning more by asking my own questions and seeking answers --- Diagnostic - 32 and Short - 12
+                    */
                     questionList.eachWithIndex{ questionID, index ->
                         def reportData = getReportDataByQuestion(reportID, questionID, frequencies_map)
-                        print "${reportData.results.result.raw.mean},"          //raw_mean
-                        print "${reportData.results.result.adjusted.mean},"     //adj_mean
-                        print "${reportData.results.result.raw.tscore},"        //raw t-score
-                        print "${reportData.results.result.adjusted.tscore},"   //raw adjusted t-score
-
-                        //Except Diagnostic 40 / Short 16 (index = 0), we need compared to discipline / institution
-                        if (index != 0){
-                            print "${reportData.results.discipline_result.raw.tscore},"         //discipline raw t-score
-                            print "${reportData.results.discipline_result.adjusted.tscore},"    //discipline adjusted t-score
-                            print "${reportData.results.institution_result.raw.tscore},"        //institution raw t-score
-                            print "${reportData.results.institution_result.adjusted.tscore},"   //institution adjusted t-score
-                        }
 
                         //Add Summary before Objective 1 (Diagnostic 21 / Short 1)
                         if (index == 3){
@@ -247,7 +247,25 @@ public class Main {
                             print "${model.aggregate_data.summary_evaluation.discipline_result.adjusted.tscore},"   //SumEval_CAdj_Disc
                             print "${model.aggregate_data.summary_evaluation.institution_result.raw.tscore},"       //SumEval_CRaw_Inst
                             print "${model.aggregate_data.summary_evaluation.institution_result.adjusted.tscore},"  //SumEval_CAdj_Inst
+                        }else{
+                            //Print Obj1-12
+                            if (index >= 4 && index <= 15) {
+                                print "${objectives[index-4]}," //e.g., objectives[1] = obj1
+                            }
+                            print "${reportData.results.result.raw.mean},"          //raw_mean
+                            print "${reportData.results.result.adjusted.mean},"     //adj_mean
+                            print "${reportData.results.result.raw.tscore},"        //raw t-score
+                            print "${reportData.results.result.adjusted.tscore},"   //raw adjusted t-score
+
+                            //Except Diagnostic 40 / Short 16 (index = 0), we need 'compared to discipline / institution' data
+                            if (index != 0){
+                                print "${reportData.results.discipline_result.raw.tscore},"         //discipline raw t-score
+                                print "${reportData.results.discipline_result.adjusted.tscore},"    //discipline adjusted t-score
+                                print "${reportData.results.institution_result.raw.tscore},"        //institution raw t-score
+                                print "${reportData.results.institution_result.adjusted.tscore},"   //institution adjusted t-score
+                            }
                         }
+
                     }
 
                     //Teaching Method 1-20 (Diagnostic 1-20)
