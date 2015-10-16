@@ -2,6 +2,14 @@ package org.ideaedu
 
 import groovyx.net.http.RESTClient
 import groovyx.net.http.ContentType
+import groovy.swing.SwingBuilder
+import org.codehaus.groovy.runtime.DateGroovyMethods
+
+import java.awt.BorderLayout
+import java.awt.FlowLayout
+import javax.swing.BoxLayout
+import javax.swing.border.EmptyBorder
+
 
 /**
  * The Main class provides a way to pull IDEA Feedback System data from the
@@ -32,8 +40,8 @@ public class Main {
     private static final def DEFAULT_AUTH_HEADERS = [ "X-IDEA-APPNAME": "", "X-IDEA-KEY": "" ]
     private static final def DEFAULT_PROTOCOL = "https"
     private static final def DEFAULT_INSTITUTION_ID = 1029
-    private static final def DEFAULT_START_DATE = new Date() - 10
-    private static final def DEFAULT_END_DATE = new Date() - 1
+    private static final def DEFAULT_START_DATE = getFormattedDate(new Date()-30 )
+    private static final def DEFAULT_END_DATE = getFormattedDate(new Date()-1)
     private static final def DEFAULT_TYPE = "Diagnostic"
 
     private static final def FORM_NAMES = [
@@ -134,7 +142,31 @@ public class Main {
             authHeaders['X-IDEA-KEY'] = options.k
         }
 
-
+        def cnt = 0
+        new SwingBuilder().edt {
+            frame(title: 'Aggregate Data File Generator', size: [600, 200], show: true,  defaultCloseOperation:javax.swing.WindowConstants.EXIT_ON_CLOSE) {
+                panel(border:new EmptyBorder(2,2,2,2)) {
+                    boxLayout(axis:BoxLayout.Y_AXIS)
+                    panel(layout:new FlowLayout(), constraints:BorderLayout.NORTH){
+                        label(text: 'Institution')
+                        def institutionComboBox = comboBox()
+                        getAllInstitutions().each { institution ->
+                            institutionComboBox.addItem("${institution.name} (${institution.id})")
+                        }
+                    }
+                    panel(layout:new FlowLayout(), constraints:BorderLayout.CENTER){
+                        label(text: 'Start Date')
+                        def startDateTextField = textField(text:startDate)
+                    }
+                    panel(layout:new FlowLayout(), constraints:BorderLayout.SOUTH){
+                        label(text: 'End Date')
+                        def endDateTextField = textField(text:endDate)
+                    }
+                    button(label: 'Generate',
+                            actionPerformed: {println("hi todd");})
+                }
+            }
+        }
 
         /*
          * The following will get all the surveys that are available of the
@@ -144,7 +176,7 @@ public class Main {
          */
         def types = [ 9, 10 ]
         def institution = getInstitution(institutionID)
-        def surveys = getAllSurveys(institutionID, types)
+        def surveys = getAllSurveys(institutionID, types, startDate, endDate)
         if(surveys) {
             // Print the CSV header
             println "ID, FICE, Institution, Term_Year, Instructor, Dept_Code_Name, Course_Num, Dept_Name, Dept_Code, Local_Code, Time, Days, Enrolled, Responses, Form, Delivery, Year_Term_Code, Batch, " +
@@ -373,7 +405,7 @@ public class Main {
             println "An error occured while getting the institution with ID ${institutionID}: ${response.status}"
         }
 
-        return institution
+        institution
     }
 
     static def getReports(surveyID, type=DEFAULT_TYPE) {
@@ -394,7 +426,7 @@ public class Main {
             println "An error occured while getting the reports with survey ID ${surveyID} and type ${type}: ${response.status}"
         }
 
-        return reports
+        reports
     }
 
     static def getFormName(id) {
@@ -418,7 +450,7 @@ public class Main {
             println "An error occured while getting the report model with ID ${reportID}: ${response.status}"
         }
 
-        return reportModel
+        reportModel
     }
 
     static def getReportDataByQuestion(reportID, questionID, frequencies_map) {
@@ -446,7 +478,7 @@ public class Main {
             //println "An error occured while getting the report data with REPORT_ID = ${reportID}, QUESTION_ID ${questionID}: ${response.status}"
         }
 
-        return reportData
+        reportData
     }
 
     /**
@@ -456,7 +488,7 @@ public class Main {
      * @param types An array of survey types to get data for.
      * @return A list of surveys of the given type; might be empty but never null.
      */
-    static def getAllSurveys(institutionID, types) {
+    static def getAllSurveys(institutionID, types, startDate, endDate) {
         def surveys = []
 
         def client = getRESTClient()
@@ -466,7 +498,7 @@ public class Main {
         def page = 0
         while((totalResults > resultsSeen + currentResults) && (resultsSeen < MAX_SURVEYS)) {
             def response = client.get(
-                path: "${basePath}/surveys",
+                path: "${basePath}/surveys/${institutionID}?startDate=${startDate}&endDate=${endDate}",
                 query: [ max: PAGE_SIZE, page: page/*, institution_id: institutionID, types: types */],
                 requestContentType: ContentType.JSON,
                 headers: authHeaders)
@@ -489,7 +521,28 @@ public class Main {
             }
         }
 
-        return surveys
+        surveys
+    }
+
+    static def getAllInstitutions(){
+        def institutions = []
+        def client = getRESTClient()
+        def response = client.get(
+                path: "${basePath}/institutions",
+                query: [ max: 1000, is_current: true ],
+                requestContentType: ContentType.JSON,
+                headers: authHeaders)
+        if(response.status == 200) {
+            if(verboseOutput) {
+                println "Institution Data: ${response.data}"
+            }
+            response.data.data.each { institution ->
+                institutions << institution
+            }
+        } else {
+            println "An error occured while getting the institution data."
+        }
+        institutions.sort{it.name}
     }
 
     /**
@@ -512,5 +565,13 @@ public class Main {
         }
 
         return restClient
+    }
+
+    /**
+     * Get yyyy/mm/dd as a date format
+     * @param date
+     */
+    private static getFormattedDate(date){
+        DateGroovyMethods.format(date, 'yyyy/MM/dd')
     }
 }
