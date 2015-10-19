@@ -40,7 +40,7 @@ public class Main {
     private static final def DEFAULT_AUTH_HEADERS = [ "X-IDEA-APPNAME": "", "X-IDEA-KEY": "" ]
     private static final def DEFAULT_PROTOCOL = "https"
     private static final def DEFAULT_INSTITUTION_ID = 1029
-    private static final def DEFAULT_START_DATE = getFormattedDate(new Date()-30 )
+    private static final def DEFAULT_START_DATE = getFormattedDate(new Date()-300 )
     private static final def DEFAULT_END_DATE = getFormattedDate(new Date()-1)
     private static final def DEFAULT_TYPE = "Diagnostic"
 
@@ -142,38 +142,51 @@ public class Main {
             authHeaders['X-IDEA-KEY'] = options.k
         }
 
-        def cnt = 0
+        def institutionComboBox
+        def startDateTextField
+        def endDateTextField
+
         new SwingBuilder().edt {
-            frame(title: 'Aggregate Data File Generator', size: [600, 200], show: true,  defaultCloseOperation:javax.swing.WindowConstants.EXIT_ON_CLOSE) {
+            frame(title: 'Combo Aggregate Data File Generator', size: [600, 200], show: true,  defaultCloseOperation:javax.swing.WindowConstants.EXIT_ON_CLOSE) {
                 panel(border:new EmptyBorder(2,2,2,2)) {
                     boxLayout(axis:BoxLayout.Y_AXIS)
-                    panel(layout:new FlowLayout(), constraints:BorderLayout.NORTH){
+                    panel(layout:new FlowLayout()){
                         label(text: 'Institution')
-                        def institutionComboBox = comboBox()
+                        institutionComboBox = comboBox()
                         getAllInstitutions().each { institution ->
-                            institutionComboBox.addItem("${institution.name} (${institution.id})")
+                            institutionComboBox.addItem("${institution.name} | ${institution.id}")
                         }
                     }
-                    panel(layout:new FlowLayout(), constraints:BorderLayout.CENTER){
+                    panel(layout:new FlowLayout()){
                         label(text: 'Start Date')
-                        def startDateTextField = textField(text:startDate)
+                        startDateTextField = textField(text:startDate)
                     }
-                    panel(layout:new FlowLayout(), constraints:BorderLayout.SOUTH){
+                    panel(layout:new FlowLayout()){
                         label(text: 'End Date')
-                        def endDateTextField = textField(text:endDate)
+                        endDateTextField = textField(text:endDate)
                     }
-                    button(label: 'Generate',
-                            actionPerformed: {println("hi todd");})
+                    panel(layout:new FlowLayout()){
+                        button(label: 'Generate', actionPerformed: {
+                            institutionID = institutionComboBox?.getSelectedItem()?.split("\\|")[1]?.trim()
+                            startDate = startDateTextField.text
+                            endDate = endDateTextField.text
+                            generate()
+                        })
+                    }
                 }
             }
         }
+    }
 
+    private static def generate(){
         /*
-         * The following will get all the surveys that are available of the
-         * given type and print out the overall ratings for each survey subject.
-         * This will print the raw and adjusted mean and t-score for each survey
-         * subject.
-         */
+        * The following will get all the surveys that are available of the
+        * given type and print out the overall ratings for each survey subject.
+        * This will print the raw and adjusted mean and t-score for each survey
+        * subject.
+        */
+        println("ID=${institutionID}, startDate=${startDate}, endDate=${endDate}")
+
         def types = [ 9, 10 ]
         def institution = getInstitution(institutionID)
         def surveys = getAllSurveys(institutionID, types, startDate, endDate)
@@ -351,7 +364,6 @@ public class Main {
             println "No surveys are available."
         }
     }
-
     static def getDiscipline(disciplineID) {
         def discipline
 
@@ -497,8 +509,8 @@ public class Main {
         def currentResults = 0
         def page = 0
         while((totalResults > resultsSeen + currentResults) && (resultsSeen < MAX_SURVEYS)) {
-            def response = client.get(
-                path: "${basePath}/surveys/${institutionID}?startDate=${startDate}&endDate=${endDate}",
+            def response = client.get( //TODO change the path for start /enddate
+                path: "${basePath}/surveys", //?institution_id=${institutionID}&startDate='${startDate}'&endDate='${endDate}'
                 query: [ max: PAGE_SIZE, page: page/*, institution_id: institutionID, types: types */],
                 requestContentType: ContentType.JSON,
                 headers: authHeaders)
