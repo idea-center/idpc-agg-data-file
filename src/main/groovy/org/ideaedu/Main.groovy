@@ -73,17 +73,17 @@ public class Main {
     ]
     private static final def DIAGNOSTIC_QUESTION_ID_LIST = [490..492,471..482].flatten()
     private static final def DIAGNOSTIC_QUESTION_TEACHING_METHOD_ID_LIST = [451..470].flatten()
-    private static final def DIAGNOSTIC_ONLY_QUESTION_ID_LIST = [483..489,493].flatten() //Diagnostic 33-
+    private static final def DIAGNOSTIC_ONLY_QUESTION_ID_LIST = [483..489,493].flatten()
     private static final def DIAGNOSTIC_ADDITIONAL_QUESTION_ID_LIST = [546..565].flatten()
     private static final def SHORT_QUESTION_ID_LIST = [716..718,701..712].flatten()
     private static final def RESEARCH_QUESTION_ID_LIST = [695,494..497].flatten()
     private static final def SHORT_ADDITIONAL_QUESTION_ID_LIST = [546..565].flatten()
 
     /** The maximum number of surveys to get before quitting. */
-    private static final def MAX_SURVEYS = 1
+    private static final def MAX_SURVEYS = 1 //TODO: set to 1 for test
 
     /** The number of surveys to get per page */
-    private static final def PAGE_SIZE = 1
+    private static final def PAGE_SIZE = 1 //TODO: set to 1 for test
 
     private static def institutionID = DEFAULT_INSTITUTION_ID
     private static def startDate = DEFAULT_START_DATE
@@ -142,10 +142,12 @@ public class Main {
             authHeaders['X-IDEA-KEY'] = options.k
         }
 
+        /**
+         * Creates a simple UI to select institution and start/end date
+         */
         def institutionComboBox
         def startDateTextField
         def endDateTextField
-
         new SwingBuilder().edt {
             frame(title: 'Combo Aggregate Data File Generator', size: [600, 200], show: true,  defaultCloseOperation:javax.swing.WindowConstants.EXIT_ON_CLOSE) {
                 panel(border:new EmptyBorder(2,2,2,2)) {
@@ -178,6 +180,10 @@ public class Main {
         }
     }
 
+    /**
+     * Generate and outputs aggregate data given institution id, start / end date
+     * @return
+     */
     private static def generate(){
         /*
         * The following will get all the surveys that are available of the
@@ -364,6 +370,12 @@ public class Main {
             println "No surveys are available."
         }
     }
+
+    /**
+     * Get discipline data based on discipline id
+     * @param disciplineID Discipline id
+     * @return Discipline data
+     */
     static def getDiscipline(disciplineID) {
         def discipline
 
@@ -385,8 +397,7 @@ public class Main {
                 println "An error occured while getting the discipline with ID ${disciplineID}: ${response.status}"
             }
         }
-
-        return discipline
+        discipline
     }
 
     /**
@@ -445,6 +456,11 @@ public class Main {
         return FORM_NAMES[id]
     }
 
+    /**
+     * Get report model based on report id
+     * @param reportID report id
+     * @return Report model
+     */
     static def getReportModel(reportID) {
         def reportModel
 
@@ -461,10 +477,16 @@ public class Main {
         } else {
             println "An error occured while getting the report model with ID ${reportID}: ${response.status}"
         }
-
         reportModel
     }
 
+    /**
+     * Get report data based on report id and question id
+     * @param reportID Report id
+     * @param questionID Question id
+     * @param frequencies_map Map stores frequency counts
+     * @return Report data
+     */
     static def getReportDataByQuestion(reportID, questionID, frequencies_map) {
         def reportData
         def client = getRESTClient()
@@ -489,7 +511,6 @@ public class Main {
         } else {
             //println "An error occured while getting the report data with REPORT_ID = ${reportID}, QUESTION_ID ${questionID}: ${response.status}"
         }
-
         reportData
     }
 
@@ -532,10 +553,13 @@ public class Main {
                 break
             }
         }
-
         surveys
     }
 
+    /**
+     * Get all sorted institutions
+     * @return
+     */
     static def getAllInstitutions(){
         def institutions = []
         def client = getRESTClient()
@@ -576,12 +600,12 @@ public class Main {
             }
         }
 
-        return restClient
+        restClient
     }
 
     /**
      * Get yyyy/mm/dd as a date format
-     * @param date
+     * @param date Formatted date
      */
     private static getFormattedDate(date){
         DateGroovyMethods.format(date, 'yyyy/MM/dd')
