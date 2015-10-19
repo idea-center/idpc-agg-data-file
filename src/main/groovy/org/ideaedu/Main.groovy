@@ -5,7 +5,9 @@ import groovyx.net.http.ContentType
 import groovy.swing.SwingBuilder
 import org.codehaus.groovy.runtime.DateGroovyMethods
 
+import javax.swing.JOptionPane
 import java.awt.BorderLayout
+import java.awt.Dimension
 import java.awt.FlowLayout
 import javax.swing.BoxLayout
 import javax.swing.border.EmptyBorder
@@ -80,7 +82,7 @@ public class Main {
     private static final def SHORT_ADDITIONAL_QUESTION_ID_LIST = [546..565].flatten()
 
     /** The maximum number of surveys to get before quitting. */
-    private static final def MAX_SURVEYS = 1 //TODO: set to 1 for test
+    private static final def MAX_SURVEYS = 10 //TODO: set to 1 for test
 
     /** The number of surveys to get per page */
     private static final def PAGE_SIZE = 1 //TODO: set to 1 for test
@@ -97,6 +99,8 @@ public class Main {
     private static def verboseOutput = false
 
     private static RESTClient restClient
+
+    private def pb //progress bar
 
     public static void main(String[] args) {
 
@@ -161,18 +165,22 @@ public class Main {
                     }
                     panel(layout:new FlowLayout()){
                         label(text: 'Start Date')
-                        startDateTextField = textField(text:startDate)
+                        startDateTextField = textField(text:startDate) //TODO Format checking is required
                     }
                     panel(layout:new FlowLayout()){
                         label(text: 'End Date')
-                        endDateTextField = textField(text:endDate)
+                        endDateTextField = textField(text:endDate) //TODO Format checking is required
+                    }
+                    panel(layout:new FlowLayout()){
+                        pb = progressBar(minimum:0, value:0, preferredSize: new Dimension(500,10))
                     }
                     panel(layout:new FlowLayout()){
                         button(label: 'Generate', actionPerformed: {
                             institutionID = institutionComboBox?.getSelectedItem()?.split("\\|")[1]?.trim()
                             startDate = startDateTextField.text
                             endDate = endDateTextField.text
-                            generate()
+                            def successfullyGenerated = generate()
+                            //optionPane().showMessageDialog(null, successfullyGenerated, "Result", JOptionPane.INFORMATION_MESSAGE) //Optional pop-up message
                         })
                     }
                 }
@@ -184,7 +192,7 @@ public class Main {
      * Generate and outputs aggregate data given institution id, start / end date
      * @return
      */
-    private static def generate(){
+    private static def generate(pb){
         /*
         * The following will get all the surveys that are available of the
         * given type and print out the overall ratings for each survey subject.
@@ -192,17 +200,21 @@ public class Main {
         * subject.
         */
         println("ID=${institutionID}, startDate=${startDate}, endDate=${endDate}")
+        def successfullyGenerated = false
 
         def types = [ 9, 10 ]
         def institution = getInstitution(institutionID)
         def surveys = getAllSurveys(institutionID, types, startDate, endDate)
+        pb.setMaximum = surveys.size()
         if(surveys) {
+
             // Print the CSV header
             println "ID, FICE, Institution, Term_Year, Instructor, Dept_Code_Name, Course_Num, Dept_Name, Dept_Code, Local_Code, Time, Days, Enrolled, Responses, Form, Delivery, Year_Term_Code, Batch, " +
                     "Obj1, Obj2, Obj3, Obj4, Obj5, Obj6, Obj7, Obj8, Obj9, Obj10, Obj11, Obj12, " +
                     "PRO_Raw_Mean,PRO_Adj_Mean,PRO_CRaw_IDEA,PRO_CAdj_IDEA,PRO_CRaw_Disc,PRO_CAdj_Disc,PRO_CRaw_Inst,PRO_CAdj_Inst,Impr_Stu_Att_Raw_Mean,Impr_Stu_Att_Adj_Mean,Impr_Stu_Att_CRaw_IDEA,Impr_Stu_Att_CAdj_IDEA,Exc_Tchr_Raw_Mean,Exc_Tchr_Adj_Mean,Exc_Tchr_CRaw_IDEA,Exc_Tchr_CAdj_IDEA,Exc_Tchr_CRaw_Disc,Exc_Tchr_CAdj_Disc,Exc_Tchr_CRaw_Inst,Exc_Tchr_CAdj_Inst,Exc_Crs_Raw_Mean,Exc_Crs_Adj_Mean,Exc_Crs_CRaw_IDEA,Exc_Crs_CAdj_IDEA,Exc_Crs_CRaw_Disc,Exc_Crs_CAdj_Disc,Exc_Crs_CRaw_Inst,Exc_Crs_CAdj_Inst,SumEval_Raw_Mean,SumEval_Adj_Mean,SumEval_CRaw_IDEA,SumEval_CAdj_IDEA,SumEval_CRaw_Disc,SumEval_CAdj_Disc,SumEval_CRaw_Inst,SumEval_CAdj_Inst,Obj1,Obj1_Raw_Mean,Obj1_Adj_Mean,Obj1_CRaw_IDEA,Obj1_CAdj_IDEA,Obj1_CRaw_Disc,Obj1_CAdj_Disc,Obj1_CRaw_Inst,Obj1_CAdj_Inst,Obj2,Obj2_Raw_Mean,Obj2_Adj_Mean,Obj2_CRaw_IDEA,Obj2_CAdj_IDEA,Obj2_CRaw_Disc,Obj2_CAdj_Disc,Obj2_CRaw_Inst,Obj2_CAdj_Inst,Obj3,Obj3_Raw_Mean,Obj3_Adj_Mean,Obj3_CRaw_IDEA,Obj3_CAdj_IDEA,Obj3_CRaw_Disc,Obj3_CAdj_Disc,Obj3_CRaw_Inst,Obj3_CAdj_Inst,Obj4,Obj4_Raw_Mean,Obj4_Adj_Mean,Obj4_CRaw_IDEA,Obj4_CAdj_IDEA,Obj4_CRaw_Disc,Obj4_CAdj_Disc,Obj4_CRaw_Inst,Obj4_CAdj_Inst,Obj5,Obj5_Raw_Mean,Obj5_Adj_Mean,Obj5_CRaw_IDEA,Obj5_CAdj_IDEA,Obj5_CRaw_Disc,Obj5_CAdj_Disc,Obj5_CRaw_Inst,Obj5_CAdj_Inst,Obj6,Obj6_Raw_Mean,Obj6_Adj_Mean,Obj6_CRaw_IDEA,Obj6_CAdj_IDEA,Obj6_CRaw_Disc,Obj6_CAdj_Disc,Obj6_CRaw_Inst,Obj6_CAdj_Inst,Obj7,Obj7_Raw_Mean,Obj7_Adj_Mean,Obj7_CRaw_IDEA,Obj7_CAdj_IDEA,Obj7_CRaw_Disc,Obj7_CAdj_Disc,Obj7_CRaw_Inst,Obj7_CAdj_Inst,Obj8,Obj8_Raw_Mean,Obj8_Adj_Mean,Obj8_CRaw_IDEA,Obj8_CAdj_IDEA,Obj8_CRaw_Disc,Obj8_CAdj_Disc,Obj8_CRaw_Inst,Obj8_CAdj_Inst,Obj9,Obj9_Raw_Mean,Obj9_Adj_Mean,Obj9_CRaw_IDEA,Obj9_CAdj_IDEA,Obj9_CRaw_Disc,Obj9_CAdj_Disc,Obj9_CRaw_Inst,Obj9_CAdj_Inst,Obj10,Obj10_Raw_Mean,Obj10_Adj_Mean,Obj10_CRaw_IDEA,Obj10_CAdj_IDEA,Obj10_CRaw_Disc,Obj10_CAdj_Disc,Obj10_CRaw_Inst,Obj10_CAdj_Inst,Obj11,Obj11_Raw_Mean,Obj11_Adj_Mean,Obj11_CRaw_IDEA,Obj11_CAdj_IDEA,Obj11_CRaw_Disc,Obj11_CAdj_Disc,Obj11_CRaw_Inst,Obj11_CAdj_Inst,Obj12,Obj12_Raw_Mean,Obj12_Adj_Mean,Obj12_CRaw_IDEA,Obj12_CAdj_IDEA,Obj12_CRaw_Disc,Obj12_CAdj_Disc,Obj12_CRaw_Inst,Obj12_CAdj_Inst,Method1_Mean,Method2_Mean,Method3_Mean,Method4_Mean,Method5_Mean,Method6_Mean,Method7_Mean,Method8_Mean,Method9_Mean,Method10_Mean,Method11_Mean,Method12_Mean,Method13_Mean,Method14_Mean,Method15_Mean,Method16_Mean,Method17_Mean,Method18_Mean,Method19_Mean,Method20_Mean,Read_Mean,Read_Cnv_IDEA,Read_Cnv_Disc,Read_Cnv_Inst,NonRead_Mean,NonRead_Cnv_IDEA,NonRead_Cnv_Disc,NonRead_Cnv_Inst,Diff_Mean,Diff_Cnv_IDEA,Diff_Cnv_Disc,Diff_Cnv_Inst,Q36_Mean,Effort_Mean,Effort_Cnv_IDEA,Effort_Cnv_Disc,Effort_Cnv_Inst,Q38_Mean,Motivation_Mean,Motivation_Cnv_IDEA,Motivation_Cnv_Disc,Motivation_Cnv_Inst,WkHabit_Mean,WkHabit_Cnv_IDEA,WkHabit_Cnv_Disc,WkHabit_Cnv_Inst,Background_Mean,Q44_Mean,Q45_Mean,Q46_Mean,Q47_Mean,Add_Q1_Mean,Add_Q2_Mean,Add_Q3_Mean,Add_Q4_Mean,Add_Q5_Mean,Add_Q6_Mean,Add_Q7_Mean,Add_Q8_Mean,Add_Q9_Mean,Add_Q10_Mean,Add_Q11_Mean,Add_Q12_Mean,Add_Q13_Mean,Add_Q14_Mean,Add_Q15_Mean,Add_Q16_Mean,Add_Q17_Mean,Add_Q18_Mean,Add_Q19_Mean,Add_Q20_Mean"
 
-            surveys.each { survey ->
+            surveys.eachWithIndex { survey, pbIndex ->
+
                 def surveySubject = survey.info_form.respondents[0]
                 def formName = getFormName(survey.rater_form.id)
                 def discipline = [ code:"", name: "", abbrev: "" ] // TODO getDiscipline(survey.info_form.discipline_code)
@@ -366,6 +378,7 @@ public class Main {
                     println ""
                 }
             }
+            successfullyGenerated = true
         } else {
             println "No surveys are available."
         }
