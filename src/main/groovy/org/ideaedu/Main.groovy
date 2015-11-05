@@ -43,13 +43,16 @@ public class Main {
 
     private static def verboseOutput = false
 
-    private static final def template = "/Users/joonsuklee/Documents/workspace/intellij/idpc-agg-data-file/Data_Disk_Format.xlsx"
+    //TODO Remove this hard-coded path
+    private static final def template = "Data_Disk_Format.xlsx"
+    private static final def out = "out.xlsx"
+
     private static final def DEFAULT_HOSTNAME = "localhost" //"rest.ideasystem.org"
     private static final def DEFAULT_PORT = 8091 //localhost port: 8091, production port: 443
     private static final def DEFAULT_BASE_PATH = "IDEA-REST-SERVER/v1"
     private static final def DEFAULT_AUTH_HEADERS = [ "X-IDEA-APPNAME": "", "X-IDEA-KEY": "" ]
     private static final def DEFAULT_PROTOCOL = "http" //local: http, production: https
-    private static final def DEFAULT_INSTITUTION_ID = 1029
+    private static final def DEFAULT_IDENTITY_ID = 1029
     private static final def DEFAULT_START_DATE = getFormattedDate(new Date()-900 )
     private static final def DEFAULT_END_DATE = getFormattedDate(new Date()-1)
     private static final def DEFAULT_TYPE = "Diagnostic"
@@ -90,12 +93,12 @@ public class Main {
     private static final def SHORT_ADDITIONAL_QUESTION_ID_LIST = [546..565].flatten()
 
     /** The maximum number of surveys to get before quitting. */
-    private static final def MAX_SURVEYS = 1000 //TODO: set to 1 for test
+    private static final def MAX_SURVEYS = 10 //TODO: set to 1 for test
 
     /** The number of surveys to get per page */
     private static final def PAGE_SIZE = 10 //TODO: set to 1 for test
 
-    private static def institutionID = DEFAULT_INSTITUTION_ID
+    private static def identityID = DEFAULT_IDENTITY_ID
     private static def startDate = DEFAULT_START_DATE
     private static def endDate = DEFAULT_END_DATE
     private static def hostname = DEFAULT_HOSTNAME
@@ -131,7 +134,7 @@ public class Main {
             verboseOutput = true
         }
         if(options.i) {
-            institutionID = options.i.toInteger()
+            identityID = options.i.toInteger()
         }
         if(options.s) {
             startDate = options.s // TODO Get the date
@@ -181,7 +184,7 @@ public class Main {
                     }
                     panel(layout:new FlowLayout()){
                         button(label: 'Generate', actionPerformed: {
-                            institutionID = institutionComboBox?.getSelectedItem()?.split("\\|")[1]?.trim()
+                            identityID = institutionComboBox?.getSelectedItem()?.split("\\|")[1]?.trim()
                             startDate = startDateTextField.text
                             endDate = endDateTextField.text
                             def successfullyGenerated = generate()
@@ -204,14 +207,14 @@ public class Main {
         * This will print the raw and adjusted mean and t-score for each survey
         * subject.
         */
-        if (verboseOutput) println("ID=${institutionID}, startDate=${startDate}, endDate=${endDate}")
+        if (verboseOutput) println("ID=${identityID}, startDate=${startDate}, endDate=${endDate}")
         def successfullyGenerated = false
 
         def types = [ 9, 10 ]
-        def institution = getInstitution(institutionList, institutionID) //TODO remove the hard-coded id
-        def surveys = getAllSurveys(institutionID, types, startDate, endDate)
+        def institution = getInstitution(institutionList, identityID)
+        def surveys = getAllSurveys(identityID, types, startDate, endDate)
         def disciplines = getDisciplines()
-        def wb = WorkbookFactory.create(new FileInputStream(template)); //Get Excel template
+        def wb = WorkbookFactory.create(new FileInputStream(new File(template))) //Get the Excel template
         if(surveys) {
             // Print the CSV header
             if (verboseOutput) "ID, FICE, Institution, Term, Year, Instructor, Dept_Code_Name, Course_Num, Dept_Name, Dept_Code, Local_Code, Time, Days, Enrolled, Responses, Form, Delivery, Batch, " +
@@ -223,15 +226,16 @@ public class Main {
                     "Impr_Stu_Att_1,Impr_Stu_Att_2,Impr_Stu_Att_3,Impr_Stu_Att_4,Impr_Stu_Att_5,Impr_Stu_Att_Omit,Exc_Tchr_Inst_1,Exc_Tchr_Inst_2,Exc_Tchr_Inst_3,Exc_Tchr_Inst_4,Exc_Tchr_Inst_5,Exc_Tchr_Inst_Omit,Exc_Crs_1,Exc_Crs_2,Exc_Crs_3,Exc_Crs_4,Exc_Crs_5,Exc_Crs_Omit,Obj1_1,Obj1_2,Obj1_3,Obj1_4,Obj1_5,Obj1_Omit,Obj2_1,Obj2_2,Obj2_3,Obj2_4,Obj2_5,Obj2_Omit,Obj3_1,Obj3_2,Obj3_3,Obj3_4,Obj3_5,Obj3_Omit,Obj4_1,Obj4_2,Obj4_3,Obj4_4,Obj4_5,Obj4_Omit,Obj5_1,Obj5_2,Obj5_3,Obj5_4,Obj5_5,Obj5_Omit,Obj6_1,Obj6_2,Obj6_3,Obj6_4,Obj6_5,Obj6_Omit,Obj7_1,Obj7_2,Obj7_3,Obj7_4,Obj7_5,Obj7_Omit,Obj8_1,Obj8_2,Obj8_3,Obj8_4,Obj8_5,Obj8_Omit,Obj9_1,Obj9_2,Obj9_3,Obj9_4,Obj9_5,Obj9_Omit,Obj10_1,Obj10_2,Obj10_3,Obj10_4,Obj10_5,Obj10_Omit,Obj11_1,Obj11_2,Obj11_3,Obj11_4,Obj11_5,Obj11_Omit,Obj12_1,Obj12_2,Obj12_3,Obj12_4,Obj12_5,Obj12_Omit,Method1_1,Method1_2,Method1_3,Method1_4,Method1_5,Method1_Omit,Method2_1,Method2_2,Method2_3,Method2_4,Method2_5,Method2_Omit,Method3_1,Method3_2,Method3_3,Method3_4,Method3_5,Method3_Omit,Method4_1,Method4_2,Method4_3,Method4_4,Method4_5,Method4_Omit,Method5_1,Method5_2,Method5_3,Method5_4,Method5_5,Method5_Omit,Method6_1,Method6_2,Method6_3,Method6_4,Method6_5,Method6_Omit,Method7_1,Method7_2,Method7_3,Method7_4,Method7_5,Method7_Omit,Method8_1,Method8_2,Method8_3,Method8_4,Method8_5,Method8_Omit,Method9_1,Method9_2,Method9_3,Method9_4,Method9_5,Method9_Omit,Method10_1,Method10_2,Method10_3,Method10_4,Method10_5,Method10_Omit,Method11_1,Method11_2,Method11_3,Method11_4,Method11_5,Method11_Omit,Method12_1,Method12_2,Method12_3,Method12_4,Method12_5,Method12_Omit,Method13_1,Method13_2,Method13_3,Method13_4,Method13_5,Method13_Omit,Method14_1,Method14_2,Method14_3,Method14_4,Method14_5,Method14_Omit,Method15_1,Method15_2,Method15_3,Method15_4,Method15_5,Method15_Omit,Method16_1,Method16_2,Method16_3,Method16_4,Method16_5,Method16_Omit,Method17_1,Method17_2,Method17_3,Method17_4,Method17_5,Method17_Omit,Method18_1,Method18_2,Method18_3,Method18_4,Method18_5,Method18_Omit,Method19_1,Method19_2,Method19_3,Method19_4,Method19_5,Method19_Omit,Method20_1,Method20_2,Method20_3,Method20_4,Method20_5,Method20_Omit,Reading_1,Reading_2,Reading_3,Reading_4,Reading_5,Reading_Omit,NonRead_1,NonRead_2,NonRead_3,NonRead_4,NonRead_5,NonRead_Omit,Diff_1,Diff_2,Diff_3,Diff_4,Diff_5,Diff_Omit,Effort_1,Effort_2,Effort_3,Effort_4,Effort_5,Effort_Omit,Motivation_1,Motivation_2,Motivation_3,Motivation_4,Motivation_5,Motivation_Omit,WkHabit_1,WkHabit_2,WkHabit_3,WkHabit_4,WkHabit_5,WkHabit_Omit," +
                     "Q36_1,Q36_2,Q36_3,Q36_4,Q36_5,Q36_Omit,Q38_1,Q38_2,Q38_3,Q38_4,Q38_5,Q38_Omit,Background_1,Background_2,Background_3,Background_4,Background_5,Background_Omit,Q44_1,Q44_2,Q44_3,Q44_4,Q44_5,Q44_Omit,Q45_1,Q45_2,Q45_3,Q45_4,Q45_5,Q45_Omit,Q46_1,Q46_2,Q46_3,Q46_4,Q46_5,Q46_Omit,Q47_1,Q47_2,Q47_3,Q47_4,Q47_5,Q47_Omit,Add_Q1_1,Add_Q1_2,Add_Q1_3,Add_Q1_4,Add_Q1_5,Add_Q1_Omit,Add_Q2_1,Add_Q2_2,Add_Q2_3,Add_Q2_4,Add_Q2_5,Add_Q2_Omit,Add_Q3_1,Add_Q3_2,Add_Q3_3,Add_Q3_4,Add_Q3_5,Add_Q3_Omit,Add_Q4_1,Add_Q4_2,Add_Q4_3,Add_Q4_4,Add_Q4_5,Add_Q4_Omit,Add_Q5_1,Add_Q5_2,Add_Q5_3,Add_Q5_4,Add_Q5_5,Add_Q5_Omit,Add_Q6_1,Add_Q6_2,Add_Q6_3,Add_Q6_4,Add_Q6_5,Add_Q6_Omit,Add_Q7_1,Add_Q7_2,Add_Q7_3,Add_Q7_4,Add_Q7_5,Add_Q7_Omit,Add_Q8_1,Add_Q8_2,Add_Q8_3,Add_Q8_4,Add_Q8_5,Add_Q8_Omit,Add_Q9_1,Add_Q9_2,Add_Q9_3,Add_Q9_4,Add_Q9_5,Add_Q9_Omit,Add_Q10_1,Add_Q10_2,Add_Q10_3,Add_Q10_4,Add_Q10_5,Add_Q10_Omit,Add_Q11_1,Add_Q11_2,Add_Q11_3,Add_Q11_4,Add_Q11_5,Add_Q11_Omit,Add_Q12_1,Add_Q12_2,Add_Q12_3,Add_Q12_4,Add_Q12_5,Add_Q12_Omit,Add_Q13_1,Add_Q13_2,Add_Q13_3,Add_Q13_4,Add_Q13_5,Add_Q13_Omit,Add_Q14_1,Add_Q14_2,Add_Q14_3,Add_Q14_4,Add_Q14_5,Add_Q14_Omit,Add_Q15_1,Add_Q15_2,Add_Q15_3,Add_Q15_4,Add_Q15_5,Add_Q15_Omit,Add_Q16_1,Add_Q16_2,Add_Q16_3,Add_Q16_4,Add_Q16_5,Add_Q16_Omit,Add_Q17_1,Add_Q17_2,Add_Q17_3,Add_Q17_4,Add_Q17_5,Add_Q17_Omit,Add_Q18_1,Add_Q18_2,Add_Q18_3,Add_Q18_4,Add_Q18_5,Add_Q18_Omit,Add_Q19_1,Add_Q19_2,Add_Q19_3,Add_Q19_4,Add_Q19_5,Add_Q19_Omit,Add_Q20_1,Add_Q20_2,Add_Q20_3,Add_Q20_4,Add_Q20_5,Add_Q20_Omit"
 
-            //Lists that store data used for excel output
-            def fifDataList = [] //sheet 0
-            def identificationFieldDataList = [] //identification fields used in sheet 1-3
-            def meansDataList = []
-            def frequenciesPrimaryItemsDataList = []
-            def frequenciesResearchAdditonalQuestionDataList = []
             println("# of surveys found: ${surveys.size()}")
             surveys.eachWithIndex { survey, pbIndex ->
-                println ("processing ${pbIndex} of ${surveys.size()} surveys")
+                println ("processing ${pbIndex+1} of ${surveys.size()} surveys")
+                //Lists that store data used for excel output
+                def fifDataList = [] //sheet 0
+                def identificationFieldDataList = [] //identification fields used in sheet 1-3
+                def meansDataList = []
+                def frequenciesPrimaryItemsDataList = []
+                def frequenciesResearchAdditonalQuestionDataList = []
+
                 def surveySubject = survey.info_form.respondents[0]
                 def formName = getFormName(survey.rater_form.id)
                 def discipline = getDiscipline(disciplines, survey.info_form.discipline_code)
@@ -252,11 +256,6 @@ public class Main {
 
                     def rowIndex = pbIndex + 3 //Start writing from row #4 in Excel template
 
-                    fifDataList.clear()
-                    identificationFieldDataList.clear()
-                    meansDataList.clear()
-                    frequenciesResearchAdditonalQuestionDataList.clear()
-
                     if (verboseOutput) {
                         print "${survey.id},"
                         print "${institution?.fice},"
@@ -274,7 +273,6 @@ public class Main {
                         print "${model.aggregate_data.answered},"
                         print "${formName},"
                         print "," // Skip delivery
-                        print "${term_code},"
                         print "," // batch is unused in IDEA-CL
 
                         //TODO Number formatting (null, 1/10 for means and 1/1000 for t-scores)?
@@ -508,7 +506,7 @@ public class Main {
                 }
             }
             // Write the output to a file
-            FileOutputStream fileOut = new FileOutputStream("/Users/joonsuklee/Desktop/out.xlsx")
+            FileOutputStream fileOut = new FileOutputStream(new File(out))
             wb.write(fileOut)
             fileOut.close()
             successfullyGenerated = true
@@ -566,13 +564,13 @@ public class Main {
      * Get the institution information that has the given ID.
      *
      * @param institutionList institutions
-     * @param institutionID The ID of the institution.
+     * @param identityID The ID of the institution.
      * @return The institution with the given ID.
      */
-    static def getInstitution(institutionList, institutionID) {
+    static def getInstitution(institutionList, identityID) {
         def institution
         institutionList.each {inst ->
-            if (inst.id == institutionID) institution = inst
+            if (inst.id == identityID as Integer) institution = inst
         }
         institution
     }
@@ -722,7 +720,10 @@ public class Main {
                 println "Institution Data: ${response.data}"
             }
             response.data.data.each { institution ->
-                institutions << institution
+                if (getAllSurveys(institution.id,[9,10],"","")){ //TODO This only adds institutions that have surveys: testing purpose only
+                    institutions << institution
+                }
+
             }
         } else {
             println "An error occured while getting the institution data."
@@ -769,6 +770,7 @@ public class Main {
     private static writeDataToExcel(sheet, cellDataList, rowIndex){
         Row row = sheet.createRow(rowIndex)
         cellDataList.eachWithIndex { cellValue, index ->
+            //println "row=${rowIndex}, cell=${index}, value=${cellValue}"
             Cell cell = row.createCell(index)
             cell.setCellValue(cellValue)
         }
